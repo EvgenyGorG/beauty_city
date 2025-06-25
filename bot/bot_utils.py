@@ -19,6 +19,7 @@ def back_to_menu():
 
 
 def handle_back_to_menu(update, context):
+    """Обработчик команды "Вернуться в главное меню"."""
     query = update.callback_query
     query.answer()
     query.edit_message_text(
@@ -45,7 +46,7 @@ def handle_booking(update, context): # меню записи, пока не сд
     )
 
 
-def handle_manage_bookings(update, context): # меню где можно будет удалять уже имеющиеся записи
+def handle_manage_bookings(update, context): # меню где можно будет удалять уже имеющиеся записи, еще не сделано
     query = update.callback_query
     query.answer()
     query.edit_message_text(
@@ -64,6 +65,7 @@ def handle_manager_contact(update, context):
 
 
 def handle_feedback(update, context):
+    """Оставить отзыв."""
     query = update.callback_query
     query.answer()
     query.edit_message_text(

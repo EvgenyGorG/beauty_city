@@ -43,7 +43,7 @@ def button_handler(update, context):
         query.edit_message_text('Ваш выбор не распознан. Пожалуйста, выберите действие из меню или нажмите /start, чтобы начать заново')
 
 
-def handle_message(update, context):
+def message_handler(update, context):
     """Обработчик текстового сообщения."""
     if context.user_data.get('waiting_feedback'):
         context.user_data['waiting_feedback'] = False
@@ -68,7 +68,7 @@ def run_bot():
     dp = updater.dispatcher
     dp.add_handler(CommandHandler('start', start)) # обработчик start
     dp.add_handler(CallbackQueryHandler(button_handler))  # обработчик кнопок
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))  # 👈 добавлен обработчик сообщений
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, message_handler))  # обработчик сообщений
 
     updater.start_polling()
     updater.idle()
