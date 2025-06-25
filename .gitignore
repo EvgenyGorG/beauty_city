@@ -1,0 +1,40 @@
+# Игнорируем виртуальное окружение
+venv/
+
+# Игнорируем кэш Python
+__pycache__/
+*.py[cod]
+
+# Игнорируем логи
+*.log
+
+# Игнорируем временные файлы
+*.tmp
+*.temp
+
+# Игнорируем артефакты сборки
+build/
+dist/
+*.egg-info/
+
+# Игнорируем настройки PyCharm (если не хотите их хранить)
+.idea/
+
+# Игнорируем файлы с секретами
+.env
+
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# C extensions
+*.so
+
+#Django
+*.pot
+local_settings.py
+db.sqlite3
