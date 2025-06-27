@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'beauty_city_data',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
