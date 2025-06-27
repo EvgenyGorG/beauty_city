@@ -5,7 +5,7 @@ from os import getenv
 from dotenv import load_dotenv
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 
-from bot_utils import build_keyboard, handle_manager_contact, handle_back_to_menu, handle_feedback, back_to_menu
+import bot_utils
 from menu_constants import MAIN_MENU
 
 
@@ -14,11 +14,16 @@ from menu_constants import MAIN_MENU
 # from app.models import YourModel  # импорт моделей после настройки Django
 
 HANDLER_MAP = {
-    'to_menu': handle_back_to_menu,
-    'main_menu_0': '', # запись
-    'main_menu_1': '', # управление (удаление) записей
-    'main_menu_2': handle_manager_contact,
-    'main_menu_3': handle_feedback
+    'to_menu': bot_utils.handle_back_to_menu,
+    'main_menu_0': bot_utils.handle_main_menu_appointment,
+    'appointment_type_0': bot_utils.handle_appointment_type,
+    'appointment_type_1': bot_utils.handle_appointment_type,
+    'choose_address_0': bot_utils.handle_choose_address,
+    'choose_address_1': bot_utils.handle_choose_address,
+    'choose_address_2': bot_utils.handle_choose_address,
+    'main_menu_1': bot_utils.handle_manage_bookings,
+    'main_menu_2': bot_utils.handle_manager_contact,
+    'main_menu_3': bot_utils.handle_feedback
 }
 
 
@@ -26,7 +31,7 @@ def start(update, context):
     """Обработчик команды /start."""
     update.message.reply_text(
         'BeautyCity приветствует вас! Что вас интересует?',
-        reply_markup=build_keyboard('main_menu', MAIN_MENU)
+        reply_markup=bot_utils.build_keyboard('main_menu', MAIN_MENU)
     )
 
 
@@ -55,7 +60,7 @@ def message_handler(update, context):
         )
 
         context.bot.send_message(chat_id='@devmn_beauty_city_feedback', text=message)
-        update.message.reply_text("Спасибо за ваш отзыв! 🌸", reply_markup=back_to_menu())
+        update.message.reply_text("Спасибо за ваш отзыв! 🌸", reply_markup=bot_utils.back_to_menu())
     else:
         update.message.reply_text("Пожалуйста, выберите действие из меню или нажмите /start.")
 

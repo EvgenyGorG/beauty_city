@@ -13,8 +13,7 @@ APPOINTMENT_TYPE = [
 CHOOSE_ADDRESS = [
     ['BeautyCity Пушкинская - ул. Пушкинская, д. 78А'],
     ['BeautyCity Ленина - ул. Ленина, д. 211'],
-    ['BeautyCity Красная - ул. Красная, д. 10'],
-    ['Я хочу записаться к любимому мастеру']
+    ['BeautyCity Красная - ул. Красная, д. 10']
 ]
 
 SERVICE_CATEGORIES = [
