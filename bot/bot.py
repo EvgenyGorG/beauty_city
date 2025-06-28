@@ -8,22 +8,19 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageH
 import bot_utils
 from menu_constants import MAIN_MENU
 
-
 # os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'beauty_city.settings')
 # django.setup()
 # from app.models import YourModel  # импорт моделей после настройки Django
 
 HANDLER_MAP = {
     'to_menu': bot_utils.handle_back_to_menu,
-    'main_menu_0': bot_utils.handle_main_menu_appointment,
-    'appointment_type_0': bot_utils.handle_appointment_type,
-    'appointment_type_1': bot_utils.handle_appointment_type,
-    'choose_address_0': bot_utils.handle_choose_address,
-    'choose_address_1': bot_utils.handle_choose_address,
-    'choose_address_2': bot_utils.handle_choose_address,
-    'main_menu_1': bot_utils.handle_manage_bookings,
-    'main_menu_2': bot_utils.handle_manager_contact,
-    'main_menu_3': bot_utils.handle_feedback
+    'main_menu': bot_utils.handle_main_menu,
+    'appointment_type': bot_utils.handle_appointment_type,
+    'choose_address': bot_utils.handle_choose_address,
+    'choose_service_category': bot_utils.handle_choose_service_category,
+    'manage_bookings': bot_utils.handle_manage_bookings,
+    'manager_contact': bot_utils.handle_manager_contact,
+    'feedback': bot_utils.handle_feedback,
 }
 
 
@@ -36,16 +33,25 @@ def start(update, context):
 
 
 def button_handler(update, context):
-    """Обработчик нажатий кнопок в меню."""
     query = update.callback_query
     query.answer()
-    callback_id = query.data
+    data = query.data.strip()
 
-    handler = HANDLER_MAP.get(callback_id)
-    if handler:
-        handler(update, context)
+    if data in HANDLER_MAP:
+        action = data
+        param = None
     else:
-        query.edit_message_text('Ваш выбор не распознан. Пожалуйста, выберите действие из меню или нажмите /start, чтобы начать заново')
+        if '_' in data:
+            action, param = data.rsplit('_', 1)
+        else:
+            # На всякий случай, если вообще непонятно
+            action = data
+            param = None
+    handler = HANDLER_MAP.get(action)
+    if handler:
+        handler(update, context, param)
+    else:
+        query.edit_message_text('Выбор не распознан, нажмите /start для начала.')
 
 
 def message_handler(update, context):
