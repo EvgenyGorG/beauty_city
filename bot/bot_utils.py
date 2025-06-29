@@ -63,8 +63,8 @@ def handle_appointment_type(update, context, param=None):
     elif param == '1':
         context.user_data['booking'] = {'type': 'by_master'}
         query.edit_message_text(
-            text="Вы выбрали запись к любимому мастеру. Эта функция пока в разработке.",
-            reply_markup=back_to_menu()
+            text="Вы выбрали запись к любимому мастеру. Выберите категорию услуги:",
+            reply_markup=build_keyboard('choose_service_category', menu_constants.SERVICE_CATEGORIES)
         )
     else:
         query.edit_message_text("Неверный выбор. Попробуйте снова.", reply_markup=back_to_menu())
@@ -106,12 +106,21 @@ def handle_choose_service_category(update, context, param=None):
         context.user_data['booking'] = {}
     context.user_data['booking']['service_category'] = service_category
 
-    services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
+    booking_type = context.user_data['booking'].get('type')
 
-    query.edit_message_text(
-        text=f"Вы выбрали категорию: {service_category}. Теперь выберите конкретную услугу:",
-        reply_markup=build_keyboard('choose_service', services)
-    )
+    if booking_type == 'by_master':
+        # Показать выбор мастера (редактируем сообщение с клавиатурой)
+        masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
+        query.edit_message_text(
+            text="Вы выбрали категорию: {}.\nТеперь выберите мастера:".format(service_category),
+            reply_markup=build_keyboard('choose_master', masters_list)
+        )
+    else:
+        services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
+        query.edit_message_text(
+            text=f"Вы выбрали категорию: {service_category}. Теперь выберите конкретную услугу:",
+            reply_markup=build_keyboard('choose_service', services)
+        )
 
 
 def handle_concrete_service(update, context, param=None):
@@ -132,10 +141,12 @@ def handle_concrete_service(update, context, param=None):
     booking['service'] = selected_service
     context.user_data['booking'] = booking
 
+    # После выбора услуги — переходим к выбору даты (для обоих сценариев)
     query.edit_message_text(
-        text=f"Вы выбрали услугу: {selected_service}\n\nТеперь выберите мастера:",
-        reply_markup=build_keyboard('choose_master', menu_constants.CATEGORY_TO_MASTERS.get(service_category, []))
+        text=f"Вы выбрали услугу: {selected_service}\n\nТеперь выберите дату:",
+        reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
     )
+    context.user_data['current_step'] = 'choose_date'
 
 
 def handle_choose_master(update, context, param=None):
@@ -144,14 +155,49 @@ def handle_choose_master(update, context, param=None):
 
     booking = context.user_data.get('booking', {})
     service_category = booking.get('service_category')
+    booking_type = booking.get('type')
+
+    masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
+
+    if param is None:
+        query.edit_message_text(
+            text="Выберите мастера:",
+            reply_markup=build_keyboard('choose_master', masters_list)
+        )
+        return
 
     index = int(param)
-    masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
     selected_master = masters_list[index][0]
-
     booking['master'] = selected_master
     context.user_data['booking'] = booking
 
+    # После выбора мастера — переходим к выбору услуги
+    services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
+    query.edit_message_text(
+        text="Выберите услугу:",
+        reply_markup=build_keyboard('choose_service', services)
+    )
+    context.user_data['current_step'] = 'choose_service_after_master'
+
+
+def handle_choose_service_after_master(update, context, param=None):
+    query = update.callback_query
+    query.answer()
+
+    if param is None:
+        query.edit_message_text("Ошибка выбора услуги. Попробуйте снова.", reply_markup=back_to_menu())
+        return
+
+    index = int(param)
+    service = menu_constants.CATEGORY_TO_SERVICES.get(
+        context.user_data['booking']['service_category'], []
+    )[index][0]
+
+    booking = context.user_data.get('booking', {})
+    booking['service'] = service
+    context.user_data['booking'] = booking
+
+    # После выбора услуги показываем выбор даты
     query.edit_message_text(
         text="Выберите дату для записи:",
         reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
@@ -279,7 +325,7 @@ def handle_confirm_booking(update, context, param=None):
         "Спасибо, что выбрали BeautyCity! Мы с нетерпением ждём вас 😊\n"
         "Если понадобится что-то изменить — просто напишите нам или управляйте вашей записью в главном меню бота!"
     )
-
+    print(context.user_data)
     reply_markup = back_to_menu()
 
     if update.callback_query:

@@ -1,16 +1,11 @@
 import os
 from os import getenv
 
-# import django
 from dotenv import load_dotenv
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
 
 import bot_utils
 from menu_constants import MAIN_MENU
-
-# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'beauty_city.settings')
-# django.setup()
-# from app.models import YourModel  # импорт моделей после настройки Django
 
 HANDLER_MAP = {
     'to_menu': bot_utils.handle_back_to_menu,
@@ -20,6 +15,7 @@ HANDLER_MAP = {
     'choose_service_category': bot_utils.handle_choose_service_category,
     'choose_service': bot_utils.handle_concrete_service,
     'choose_master': bot_utils.handle_choose_master,
+    'choose_service_after_master': bot_utils.handle_choose_service_after_master,
     'choose_date': bot_utils.handle_choose_date,
     'choose_time': bot_utils.handle_choose_time,
     'ask_name': bot_utils.handle_ask_name,
