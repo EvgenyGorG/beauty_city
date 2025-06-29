@@ -145,7 +145,6 @@ def handle_concrete_service(update, context, param=None):
     context.user_data['booking'] = booking
 
     if booking.get('type') == 'by_address':
-        # После выбора услуги в записи по адресу — показываем выбор мастера
         masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
         query.edit_message_text(
             text="Вы выбрали услугу: {}.\n\nТеперь выберите мастера:".format(selected_service),
@@ -154,7 +153,6 @@ def handle_concrete_service(update, context, param=None):
         context.user_data['current_step'] = 'choose_master'
 
     else:
-        # Для записи к мастеру — сразу выбор даты
         query.edit_message_text(
             text=f"Вы выбрали услугу: {selected_service}\n\nТеперь выберите дату:",
             reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
@@ -185,15 +183,12 @@ def handle_choose_master(update, context, param=None):
     context.user_data['booking'] = booking
 
     if booking_type == 'by_address':
-        # Если запись по адресу, то услугу пользователь уже выбрал ранее
-        # Переходим сразу к выбору даты (без повторного выбора услуги)
         query.edit_message_text(
             text=f"Вы выбрали мастера: {selected_master}.\nТеперь выберите дату:",
             reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
         )
         context.user_data['current_step'] = 'choose_date'
     else:
-        # Для записи к мастеру — показываем выбор услуги после выбора мастера
         services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
         query.edit_message_text(
             text="Выберите услугу:",
@@ -219,7 +214,6 @@ def handle_choose_service_after_master(update, context, param=None):
     booking['service'] = service
     context.user_data['booking'] = booking
 
-    # После выбора услуги — переходим к выбору даты, а не обратно к услуге
     query.edit_message_text(
         text="Выберите дату для записи:",
         reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
@@ -278,7 +272,7 @@ def handle_ask_name(update, context, param=None):
     user_name = update.message.text.strip()
 
     user_data['name'] = user_name
-    user_data['current_step'] = 'ask_phone'  # переходим к следующему шагу
+    user_data['current_step'] = 'ask_phone'
 
     update.message.reply_text(
         f"Спасибо, {user_name}! 🌸\n\nПожалуйста, введите ваш номер телефона:"
@@ -335,7 +329,7 @@ def handle_manage_bookings(update, context, param=None):
 def handle_confirm_booking(update, context, param=None):
     user_data = context.user_data
 
-    booking = user_data.get('booking', {})  # <-- обязательно словарь по умолчанию
+    booking = user_data.get('booking', {})
     selected_date = user_data.get('selected_date', 'не выбрана')
     selected_time = user_data.get('selected_time', 'не выбрано')
 
