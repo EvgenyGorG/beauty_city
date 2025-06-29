@@ -1,5 +1,4 @@
 import os
-from os import getenv
 
 from dotenv import load_dotenv
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
@@ -37,6 +36,7 @@ def start(update, context):
 
 
 def button_handler(update, context):
+    """Общий обработчик нажатий кнопок."""
     query = update.callback_query
     query.answer()
     data = query.data.strip()
@@ -48,7 +48,6 @@ def button_handler(update, context):
         if '_' in data:
             action, param = data.rsplit('_', 1)
         else:
-            # На всякий случай, если вообще непонятно
             action = data
             param = None
     handler = HANDLER_MAP.get(action)
@@ -87,9 +86,9 @@ def run_bot():
 
     updater = Updater(tg_token, use_context=True)
     dp = updater.dispatcher
-    dp.add_handler(CommandHandler('start', start)) # обработчик start
-    dp.add_handler(CallbackQueryHandler(button_handler))  # обработчик кнопок
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, message_handler))  # обработчик сообщений
+    dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(CallbackQueryHandler(button_handler))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, message_handler))
 
     updater.start_polling()
     updater.idle()

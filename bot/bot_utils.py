@@ -4,7 +4,7 @@ import menu_constants
 
 
 def build_keyboard(action_type, button_rows):
-    """Универсальная функция для создания меню из констант."""
+    """Создает клавиатуру, принимает тип действия (для callback_data) и список списков с названиями кнопок."""
     keyboard = [
         [InlineKeyboardButton(text=button_label, callback_data=f"{action_type}_{row_index}")]
         for row_index, [button_label] in enumerate(button_rows)
@@ -13,13 +13,13 @@ def build_keyboard(action_type, button_rows):
 
 
 def back_to_menu():
-    """Кнопка для возвращения в главное меню."""
+    """Создает кнопку возврата в главное меню."""
     keyboard = [[InlineKeyboardButton(text='⬅️ Вернуться в главное меню', callback_data='to_menu')]]
     return InlineKeyboardMarkup(keyboard)
 
 
 def handle_back_to_menu(update, context, param=None):
-    """Обработчик команды "Вернуться в главное меню"."""
+    """Обработчик кнопки возврата в главное меню."""
     query = update.callback_query
     query.answer()
     query.edit_message_text(
@@ -29,6 +29,7 @@ def handle_back_to_menu(update, context, param=None):
 
 
 def handle_main_menu(update, context, param=None):
+    """Обработчик кнопок главного меню."""
     query = update.callback_query
     query.answer()
 
@@ -60,12 +61,14 @@ def handle_appointment_type(update, context, param=None):
             text="Вы выбрали запись по адресу. Выберите салон:",
             reply_markup=build_keyboard('choose_address', menu_constants.CHOOSE_ADDRESS)
         )
+        context.user_data['current_step'] = 'choose_address'
     elif param == '1':
         context.user_data['booking'] = {'type': 'by_master'}
         query.edit_message_text(
             text="Вы выбрали запись к любимому мастеру. Выберите категорию услуги:",
             reply_markup=build_keyboard('choose_service_category', menu_constants.SERVICE_CATEGORIES)
         )
+        context.user_data['current_step'] = 'choose_service_category'
     else:
         query.edit_message_text("Неверный выбор. Попробуйте снова.", reply_markup=back_to_menu())
 
@@ -84,7 +87,7 @@ def handle_choose_address(update, context, param=None):
     if 'booking' not in context.user_data:
         context.user_data['booking'] = {}
     context.user_data['booking']['address'] = address
-
+    context.user_data['current_step'] = 'choose_service_category'
     query.edit_message_text(
         text=f"Вы выбрали: {address}\n\nТеперь выберите категорию услуги:",
         reply_markup=build_keyboard('choose_service_category', menu_constants.SERVICE_CATEGORIES)
@@ -107,14 +110,14 @@ def handle_choose_service_category(update, context, param=None):
     context.user_data['booking']['service_category'] = service_category
 
     booking_type = context.user_data['booking'].get('type')
-
+    context.user_data['current_step'] = 'choose_master'
     if booking_type == 'by_master':
-        # Показать выбор мастера (редактируем сообщение с клавиатурой)
         masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
         query.edit_message_text(
             text="Вы выбрали категорию: {}.\nТеперь выберите мастера:".format(service_category),
             reply_markup=build_keyboard('choose_master', masters_list)
         )
+        context.user_data['current_step'] = 'choose_master'
     else:
         services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
         query.edit_message_text(
@@ -141,12 +144,22 @@ def handle_concrete_service(update, context, param=None):
     booking['service'] = selected_service
     context.user_data['booking'] = booking
 
-    # После выбора услуги — переходим к выбору даты (для обоих сценариев)
-    query.edit_message_text(
-        text=f"Вы выбрали услугу: {selected_service}\n\nТеперь выберите дату:",
-        reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
-    )
-    context.user_data['current_step'] = 'choose_date'
+    if booking.get('type') == 'by_address':
+        # После выбора услуги в записи по адресу — показываем выбор мастера
+        masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
+        query.edit_message_text(
+            text="Вы выбрали услугу: {}.\n\nТеперь выберите мастера:".format(selected_service),
+            reply_markup=build_keyboard('choose_master', masters_list)
+        )
+        context.user_data['current_step'] = 'choose_master'
+
+    else:
+        # Для записи к мастеру — сразу выбор даты
+        query.edit_message_text(
+            text=f"Вы выбрали услугу: {selected_service}\n\nТеперь выберите дату:",
+            reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
+        )
+        context.user_data['current_step'] = 'choose_date'
 
 
 def handle_choose_master(update, context, param=None):
@@ -171,13 +184,22 @@ def handle_choose_master(update, context, param=None):
     booking['master'] = selected_master
     context.user_data['booking'] = booking
 
-    # После выбора мастера — переходим к выбору услуги
-    services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
-    query.edit_message_text(
-        text="Выберите услугу:",
-        reply_markup=build_keyboard('choose_service', services)
-    )
-    context.user_data['current_step'] = 'choose_service_after_master'
+    if booking_type == 'by_address':
+        # Если запись по адресу, то услугу пользователь уже выбрал ранее
+        # Переходим сразу к выбору даты (без повторного выбора услуги)
+        query.edit_message_text(
+            text=f"Вы выбрали мастера: {selected_master}.\nТеперь выберите дату:",
+            reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
+        )
+        context.user_data['current_step'] = 'choose_date'
+    else:
+        # Для записи к мастеру — показываем выбор услуги после выбора мастера
+        services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
+        query.edit_message_text(
+            text="Выберите услугу:",
+            reply_markup=build_keyboard('choose_service', services)
+        )
+        context.user_data['current_step'] = 'choose_service_after_master'
 
 
 def handle_choose_service_after_master(update, context, param=None):
@@ -197,7 +219,7 @@ def handle_choose_service_after_master(update, context, param=None):
     booking['service'] = service
     context.user_data['booking'] = booking
 
-    # После выбора услуги показываем выбор даты
+    # После выбора услуги — переходим к выбору даты, а не обратно к услуге
     query.edit_message_text(
         text="Выберите дату для записи:",
         reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
@@ -225,6 +247,7 @@ def handle_choose_date(update, context, param=None):
             text="Выберите дату:",
             reply_markup=reply_markup
         )
+    context.user_data['current_step'] = 'choose_date'
 
 
 def handle_choose_time(update, context, param=None):
@@ -247,6 +270,7 @@ def handle_choose_time(update, context, param=None):
             text="Выберите время:",
             reply_markup=reply_markup
         )
+        context.user_data['current_step'] = 'ask_name'
 
 
 def handle_ask_name(update, context, param=None):
@@ -261,14 +285,11 @@ def handle_ask_name(update, context, param=None):
     )
 
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-
 def handle_ask_phone(update, context, param=None):
     user_data = context.user_data
     phone = update.message.text.strip()
 
     user_data['phone'] = phone
-    # Не сбрасываем current_step, чтобы дождаться подтверждения записи
 
     booking = user_data.get('booking', {})
     selected_date = user_data.get('selected_date', 'не выбрана')
@@ -317,7 +338,6 @@ def handle_confirm_booking(update, context, param=None):
     booking = user_data.get('booking', {})  # <-- обязательно словарь по умолчанию
     selected_date = user_data.get('selected_date', 'не выбрана')
     selected_time = user_data.get('selected_time', 'не выбрано')
-    user_name = user_data.get('name', 'не указано')
 
     confirm_text = (
         f"🎉 Отлично! Ваша запись на *{booking.get('service', 'услугу')}*\n"
