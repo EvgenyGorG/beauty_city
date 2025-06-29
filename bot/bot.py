@@ -18,6 +18,14 @@ HANDLER_MAP = {
     'appointment_type': bot_utils.handle_appointment_type,
     'choose_address': bot_utils.handle_choose_address,
     'choose_service_category': bot_utils.handle_choose_service_category,
+    'choose_service': bot_utils.handle_concrete_service,
+    'choose_master': bot_utils.handle_choose_master,
+    'choose_date': bot_utils.handle_choose_date,
+    'choose_time': bot_utils.handle_choose_time,
+    'ask_name': bot_utils.handle_ask_name,
+    'ask_phone': bot_utils.handle_ask_phone,
+    'confirm_booking': bot_utils.handle_confirm_booking,
+    'cancel_booking': bot_utils.handle_cancel_booking,
     'manage_bookings': bot_utils.handle_manage_bookings,
     'manager_contact': bot_utils.handle_manager_contact,
     'feedback': bot_utils.handle_feedback,
@@ -56,6 +64,12 @@ def button_handler(update, context):
 
 def message_handler(update, context):
     """Обработчик текстового сообщения."""
+    current_step = context.user_data.get('current_step')
+
+    if current_step and current_step in HANDLER_MAP:
+        HANDLER_MAP[current_step](update, context)
+        return
+
     if context.user_data.get('waiting_feedback'):
         context.user_data['waiting_feedback'] = False
         user = update.message.from_user
