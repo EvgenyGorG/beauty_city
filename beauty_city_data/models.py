@@ -55,7 +55,7 @@ class Service(models.Model):
 
 class Client(models.Model):
     """Клиент"""
-    user_id = models.IntegerField(verbose_name="телеграм id", unique=True)
+    user_id = models.IntegerField(verbose_name="телеграм id")
     full_name = models.CharField("ФИО", max_length=100)
     phone_number = models.CharField("номер телефона", max_length=100)
 
@@ -82,10 +82,4 @@ class Appointment(models.Model):
         related_name='appointments', verbose_name="услуга"
     )
     start_datetime = models.DateTimeField(verbose_name="время начала")
-    end_datetime = models.DateTimeField(verbose_name="время окончания", blank=True, null=True)
-
-    def save(self, *args, **kwargs):
-        if self.start_datetime and self.service:
-            self.end_datetime = self.start_datetime + self.service.duration
-
-        super().save(*args, **kwargs)
+    end_datetime = models.DateTimeField(verbose_name="время окончания")

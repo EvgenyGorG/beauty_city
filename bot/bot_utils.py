@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 import menu_constants
+import bot_bd
 
 
 def build_keyboard(action_type, button_rows):
@@ -112,7 +115,7 @@ def handle_choose_service_category(update, context, param=None):
     booking_type = context.user_data['booking'].get('type')
     context.user_data['current_step'] = 'choose_master'
     if booking_type == 'by_master':
-        masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
+        masters_list = bot_bd.get_masters_by_category(service_category)
         query.edit_message_text(
             text="Вы выбрали категорию: {}.\nТеперь выберите мастера:".format(service_category),
             reply_markup=build_keyboard('choose_master', masters_list)
@@ -145,7 +148,9 @@ def handle_concrete_service(update, context, param=None):
     context.user_data['booking'] = booking
 
     if booking.get('type') == 'by_address':
-        masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
+        salon = booking.get('address')
+        category = booking.get('service_category')
+        masters_list = bot_bd.get_masters(salon, category)
         query.edit_message_text(
             text="Вы выбрали услугу: {}.\n\nТеперь выберите мастера:".format(selected_service),
             reply_markup=build_keyboard('choose_master', masters_list)
@@ -153,9 +158,11 @@ def handle_concrete_service(update, context, param=None):
         context.user_data['current_step'] = 'choose_master'
 
     else:
+        available_dates = bot_bd.get_available_slots(booking['master'], booking['service']).keys()
+        available_dates = [[date] for date in available_dates]
         query.edit_message_text(
             text=f"Вы выбрали услугу: {selected_service}\n\nТеперь выберите дату:",
-            reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
+            reply_markup=build_keyboard('choose_date', available_dates)
         )
         context.user_data['current_step'] = 'choose_date'
 
@@ -168,27 +175,29 @@ def handle_choose_master(update, context, param=None):
     service_category = booking.get('service_category')
     booking_type = booking.get('type')
 
-    masters_list = menu_constants.CATEGORY_TO_MASTERS.get(service_category, [])
-
-    if param is None:
-        query.edit_message_text(
-            text="Выберите мастера:",
-            reply_markup=build_keyboard('choose_master', masters_list)
-        )
-        return
-
-    index = int(param)
-    selected_master = masters_list[index][0]
-    booking['master'] = selected_master
-    context.user_data['booking'] = booking
-
     if booking_type == 'by_address':
+        salon = booking.get('address')
+        category = booking.get('service_category')
+        masters_list = bot_bd.get_masters(salon, category)
+        index = int(param)
+        selected_master = masters_list[index][0]
+        booking['master'] = selected_master
+        context.user_data['booking'] = booking
+        available_dates = bot_bd.get_available_slots(booking['master'], booking['service']).keys()
+        available_dates = [[date] for date in available_dates]
+
         query.edit_message_text(
             text=f"Вы выбрали мастера: {selected_master}.\nТеперь выберите дату:",
-            reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
+            reply_markup=build_keyboard('choose_date', available_dates)
         )
         context.user_data['current_step'] = 'choose_date'
     else:
+        masters_list = bot_bd.get_masters_by_category(service_category)
+        index = int(param)
+        selected_master = masters_list[index][0]
+        booking['master'] = selected_master
+        booking['address'] = bot_bd.get_masters_address(booking['master'])
+        context.user_data['booking'] = booking
         services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
         query.edit_message_text(
             text="Выберите услугу:",
@@ -214,9 +223,12 @@ def handle_choose_service_after_master(update, context, param=None):
     booking['service'] = service
     context.user_data['booking'] = booking
 
+    available_dates = bot_bd.get_available_slots(booking['master'], booking['service']).keys()
+    available_dates = [[date] for date in available_dates]
+
     query.edit_message_text(
         text="Выберите дату для записи:",
-        reply_markup=build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
+        reply_markup=build_keyboard('choose_date', available_dates)
     )
     context.user_data['current_step'] = 'choose_date'
 
@@ -225,18 +237,24 @@ def handle_choose_date(update, context, param=None):
     query = update.callback_query
     query.answer()
 
+    booking = context.user_data.get('booking', {})
+    available_slots = bot_bd.get_available_slots(booking['master'], booking['service'])
+    available_dates = [[date] for date in available_slots.keys()]
+
     if param is not None:
         index = int(param)
-        selected_date = menu_constants.AVAILABLE_DATES[index][0]
+        selected_date = available_dates[index][0]
         context.user_data['selected_date'] = selected_date
+        available_times = available_slots[selected_date]
+        available_times = [[time] for time in available_times]
 
-        reply_markup = build_keyboard('choose_time', menu_constants.AVAILABLE_TIMES)
+        reply_markup = build_keyboard('choose_time', available_times)
         query.edit_message_text(
             text=f"Вы выбрали дату: {selected_date}\nТеперь выберите время:",
             reply_markup=reply_markup
         )
     else:
-        reply_markup = build_keyboard('choose_date', menu_constants.AVAILABLE_DATES)
+        reply_markup = build_keyboard('choose_date', available_dates)
         query.edit_message_text(
             text="Выберите дату:",
             reply_markup=reply_markup
@@ -247,9 +265,14 @@ def handle_choose_date(update, context, param=None):
 def handle_choose_time(update, context, param=None):
     query = update.callback_query
     query.answer()
+    booking = context.user_data.get('booking', {})
+    available_times = bot_bd.get_available_slots(
+        booking['master'], booking['service']
+    )[context.user_data['selected_date']]
+    available_times = [[time] for time in available_times]
 
     if param is not None:
-        selected_time = menu_constants.AVAILABLE_TIMES[int(param)][0]
+        selected_time = available_times[int(param)][0]
         context.user_data['selected_time'] = selected_time
 
         selected_date = context.user_data.get('selected_date', 'не выбрана')
@@ -259,7 +282,7 @@ def handle_choose_time(update, context, param=None):
 
         context.user_data['current_step'] = 'ask_name'
     else:
-        reply_markup = build_keyboard('choose_time', menu_constants.AVAILABLE_TIMES)
+        reply_markup = build_keyboard('choose_time', available_times)
         query.edit_message_text(
             text="Выберите время:",
             reply_markup=reply_markup
@@ -286,6 +309,7 @@ def handle_ask_phone(update, context, param=None):
     user_data['phone'] = phone
 
     booking = user_data.get('booking', {})
+    booking['price'] = bot_bd.get_service_price(booking['service'])
     selected_date = user_data.get('selected_date', 'не выбрана')
     selected_time = user_data.get('selected_time', 'не выбрано')
     user_name = user_data.get('name', 'не указано')
@@ -295,6 +319,7 @@ def handle_ask_phone(update, context, param=None):
     confirmation_message = (
         f"Спасибо, {user_name}! 🌸\n\n"
         f"Вы планируете записаться на услугу *{booking.get('service')}* "
+        f"Стоимость {booking['price']},\n"
         f"по адресу *{booking.get('address')}*,\n"
         f"к мастеру *{booking.get('master')}*,\n"
         f"на *{selected_date} в {selected_time}*.\n"
@@ -321,9 +346,25 @@ def handle_ask_phone(update, context, param=None):
 def handle_manage_bookings(update, context, param=None):
     query = update.callback_query
     query.answer()
-    query.edit_message_text(
-        text="Здесь будет управление вашими записями"
-    )
+    user_id = update.effective_user.id
+    appointments = bot_bd.get_appointments(user_id)
+
+    if appointments.exists():
+        text_lines = ["Ваши записи:\n"]
+        for i, appointment in enumerate(appointments, start=1):
+            # Форматируем дату и время
+            start_dt = appointment.start_datetime.strftime("%d.%m.%Y %H:%M")
+            end_dt = appointment.end_datetime.strftime("%H:%M")
+            # Добавляем информацию по каждой записи
+            text_lines.append(
+                f"{i}. Мастер: {appointment.master.full_name}\n"
+                f"   Услуга: {appointment.service.name}\n"
+                f"   Дата и время: {start_dt} - {end_dt}\n"
+                f"   Имя клиента: {appointment.client.full_name}\n"
+            )
+        query.edit_message_text(text="\n".join(text_lines), reply_markup=back_to_menu())
+    else:
+        query.edit_message_text(text="У вас пока нет записей.", reply_markup=back_to_menu())
 
 
 def handle_confirm_booking(update, context, param=None):
@@ -339,7 +380,21 @@ def handle_confirm_booking(update, context, param=None):
         "Спасибо, что выбрали BeautyCity! Мы с нетерпением ждём вас 😊\n"
         "Если понадобится что-то изменить — просто напишите нам или управляйте вашей записью в главном меню бота!"
     )
+
     print(context.user_data)
+
+    user_id = update.effective_user.id
+    bot_bd.create_client(user_id, context.user_data['name'], context.user_data['phone'])
+    start_datetime = datetime.strptime(
+        context.user_data['selected_date'] + " " + context.user_data['selected_time'], '%Y-%m-%d %H:%M'
+    )
+    service_duration = bot_bd.get_service_duration(booking['service'])
+    end_datetime = start_datetime + service_duration
+    bot_bd.create_appointment(
+        user_id, context.user_data['name'], booking['address'], booking['master'],
+        booking['service'], start_datetime, end_datetime
+    )
+
     reply_markup = back_to_menu()
 
     if update.callback_query:
