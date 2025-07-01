@@ -58,18 +58,21 @@ def handle_appointment_type(update, context, param=None):
     query = update.callback_query
     query.answer()
 
+    addresses = bot_bd.get_addresses_of_salons()
+    categories_of_services = bot_bd.get_categories_of_services()
+
     if param == '0':
         context.user_data['booking'] = {'type': 'by_address'}
         query.edit_message_text(
             text="Вы выбрали запись по адресу. Выберите салон:",
-            reply_markup=build_keyboard('choose_address', menu_constants.CHOOSE_ADDRESS)
+            reply_markup=build_keyboard('choose_address', addresses)
         )
         context.user_data['current_step'] = 'choose_address'
     elif param == '1':
         context.user_data['booking'] = {'type': 'by_master'}
         query.edit_message_text(
             text="Вы выбрали запись к любимому мастеру. Выберите категорию услуги:",
-            reply_markup=build_keyboard('choose_service_category', menu_constants.SERVICE_CATEGORIES)
+            reply_markup=build_keyboard('choose_service_category', categories_of_services)
         )
         context.user_data['current_step'] = 'choose_service_category'
     else:
@@ -80,20 +83,25 @@ def handle_choose_address(update, context, param=None):
     query = update.callback_query
     query.answer()
 
+    addresses = bot_bd.get_addresses_of_salons()
+    categories_of_services = bot_bd.get_categories_of_services()
+
     if param is None:
         query.edit_message_text("Ошибка выбора адреса. Попробуйте снова.", reply_markup=back_to_menu())
         return
 
     index = int(param)
-    address = menu_constants.CHOOSE_ADDRESS[index][0]
+    address = addresses[index][0]
 
     if 'booking' not in context.user_data:
         context.user_data['booking'] = {}
+
     context.user_data['booking']['address'] = address
     context.user_data['current_step'] = 'choose_service_category'
+
     query.edit_message_text(
         text=f"Вы выбрали: {address}\n\nТеперь выберите категорию услуги:",
-        reply_markup=build_keyboard('choose_service_category', menu_constants.SERVICE_CATEGORIES)
+        reply_markup=build_keyboard('choose_service_category', categories_of_services)
     )
 
 
@@ -101,19 +109,23 @@ def handle_choose_service_category(update, context, param=None):
     query = update.callback_query
     query.answer()
 
+    categories_of_services = bot_bd.get_categories_of_services()
+
     if param is None:
         query.edit_message_text("Ошибка выбора категории услуги. Попробуйте снова.", reply_markup=back_to_menu())
         return
 
     index = int(param)
-    service_category = menu_constants.SERVICE_CATEGORIES[index][0]
+    service_category = categories_of_services[index][0]
 
     if 'booking' not in context.user_data:
         context.user_data['booking'] = {}
+
     context.user_data['booking']['service_category'] = service_category
 
     booking_type = context.user_data['booking'].get('type')
     context.user_data['current_step'] = 'choose_master'
+
     if booking_type == 'by_master':
         masters_list = bot_bd.get_masters_by_category(service_category)
         query.edit_message_text(
@@ -122,7 +134,7 @@ def handle_choose_service_category(update, context, param=None):
         )
         context.user_data['current_step'] = 'choose_master'
     else:
-        services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
+        services = bot_bd.get_services(service_category)
         query.edit_message_text(
             text=f"Вы выбрали категорию: {service_category}. Теперь выберите конкретную услугу:",
             reply_markup=build_keyboard('choose_service', services)
@@ -141,7 +153,7 @@ def handle_concrete_service(update, context, param=None):
         return
 
     index = int(param)
-    services_list = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
+    services_list = bot_bd.get_services(service_category)
     selected_service = services_list[index][0]
 
     booking['service'] = selected_service
@@ -149,8 +161,7 @@ def handle_concrete_service(update, context, param=None):
 
     if booking.get('type') == 'by_address':
         salon = booking.get('address')
-        category = booking.get('service_category')
-        masters_list = bot_bd.get_masters(salon, category)
+        masters_list = bot_bd.get_masters(salon, service_category)
         query.edit_message_text(
             text="Вы выбрали услугу: {}.\n\nТеперь выберите мастера:".format(selected_service),
             reply_markup=build_keyboard('choose_master', masters_list)
@@ -177,8 +188,7 @@ def handle_choose_master(update, context, param=None):
 
     if booking_type == 'by_address':
         salon = booking.get('address')
-        category = booking.get('service_category')
-        masters_list = bot_bd.get_masters(salon, category)
+        masters_list = bot_bd.get_masters(salon, service_category)
         index = int(param)
         selected_master = masters_list[index][0]
         booking['master'] = selected_master
@@ -198,7 +208,7 @@ def handle_choose_master(update, context, param=None):
         booking['master'] = selected_master
         booking['address'] = bot_bd.get_masters_address(booking['master'])
         context.user_data['booking'] = booking
-        services = menu_constants.CATEGORY_TO_SERVICES.get(service_category, [])
+        services = bot_bd.get_services(service_category)
         query.edit_message_text(
             text="Выберите услугу:",
             reply_markup=build_keyboard('choose_service', services)
@@ -215,9 +225,8 @@ def handle_choose_service_after_master(update, context, param=None):
         return
 
     index = int(param)
-    service = menu_constants.CATEGORY_TO_SERVICES.get(
-        context.user_data['booking']['service_category'], []
-    )[index][0]
+    category = context.user_data.get('booking', {}).get('service_category')
+    service = bot_bd.get_services(category)[index][0]
 
     booking = context.user_data.get('booking', {})
     booking['service'] = service
@@ -265,6 +274,7 @@ def handle_choose_date(update, context, param=None):
 def handle_choose_time(update, context, param=None):
     query = update.callback_query
     query.answer()
+
     booking = context.user_data.get('booking', {})
     available_times = bot_bd.get_available_slots(
         booking['master'], booking['service']
@@ -346,23 +356,26 @@ def handle_ask_phone(update, context, param=None):
 def handle_manage_bookings(update, context, param=None):
     query = update.callback_query
     query.answer()
+
     user_id = update.effective_user.id
     appointments = bot_bd.get_appointments(user_id)
 
     if appointments.exists():
         text_lines = ["Ваши записи:\n"]
+
         for i, appointment in enumerate(appointments, start=1):
-            # Форматируем дату и время
             start_dt = appointment.start_datetime.strftime("%d.%m.%Y %H:%M")
             end_dt = appointment.end_datetime.strftime("%H:%M")
-            # Добавляем информацию по каждой записи
+
             text_lines.append(
                 f"{i}. Мастер: {appointment.master.full_name}\n"
                 f"   Услуга: {appointment.service.name}\n"
                 f"   Дата и время: {start_dt} - {end_dt}\n"
                 f"   Имя клиента: {appointment.client.full_name}\n"
             )
+
         query.edit_message_text(text="\n".join(text_lines), reply_markup=back_to_menu())
+
     else:
         query.edit_message_text(text="У вас пока нет записей.", reply_markup=back_to_menu())
 
@@ -381,8 +394,6 @@ def handle_confirm_booking(update, context, param=None):
         "Если понадобится что-то изменить — просто напишите нам или управляйте вашей записью в главном меню бота!"
     )
 
-    print(context.user_data)
-
     user_id = update.effective_user.id
     bot_bd.create_client(user_id, context.user_data['name'], context.user_data['phone'])
     start_datetime = datetime.strptime(
@@ -395,13 +406,11 @@ def handle_confirm_booking(update, context, param=None):
         booking['service'], start_datetime, end_datetime
     )
 
-    reply_markup = back_to_menu()
-
     if update.callback_query:
         update.callback_query.answer()
-        update.callback_query.edit_message_text(confirm_text, parse_mode='Markdown', reply_markup=reply_markup)
+        update.callback_query.edit_message_text(confirm_text, parse_mode='Markdown', reply_markup=back_to_menu())
     else:
-        update.message.reply_text(confirm_text, parse_mode='Markdown', reply_markup=reply_markup)
+        update.message.reply_text(confirm_text, parse_mode='Markdown', reply_markup=back_to_menu())
 
     user_data['current_step'] = None
 

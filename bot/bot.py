@@ -6,6 +6,7 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageH
 import bot_utils
 from menu_constants import MAIN_MENU
 
+
 HANDLER_MAP = {
     'to_menu': bot_utils.handle_back_to_menu,
     'main_menu': bot_utils.handle_main_menu,
