@@ -48,7 +48,7 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-Затем используйте `pip` (или `pip3`, есть конфликт с Python2) для установки зависимостей:
+Затем используйте `pip` для установки зависимостей:
 ```shell
 pip install -r requirements.txt
 ```
