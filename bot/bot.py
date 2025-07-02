@@ -61,6 +61,7 @@ def button_handler(update, context):
 def message_handler(update, context):
     """Обработчик текстового сообщения."""
     current_step = context.user_data.get('current_step')
+    feedback_chat_id = context.bot_data['feedback_chat_id']
 
     if current_step and current_step in HANDLER_MAP:
         HANDLER_MAP[current_step](update, context)
@@ -75,7 +76,7 @@ def message_handler(update, context):
             f"{feedback_text}"
         )
 
-        context.bot.send_message(chat_id='@devmn_beauty_city_feedback', text=message)
+        context.bot.send_message(chat_id=feedback_chat_id, text=message)
         update.message.reply_text("Спасибо за ваш отзыв! 🌸", reply_markup=bot_utils.back_to_menu())
     else:
         update.message.reply_text("Пожалуйста, выберите действие из меню или нажмите /start.")
@@ -84,9 +85,11 @@ def message_handler(update, context):
 def run_bot():
     load_dotenv()
     tg_token = os.environ['TG_TOKEN']
+    feedback_chat_id = os.environ['FEEDBACK_CHAT_ID']
 
     updater = Updater(tg_token, use_context=True)
     dp = updater.dispatcher
+    dp.bot_data['feedback_chat_id'] = feedback_chat_id
     dp.add_handler(CommandHandler('start', start))
     dp.add_handler(CallbackQueryHandler(button_handler))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, message_handler))
